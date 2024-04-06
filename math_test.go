@@ -2,10 +2,10 @@ package main
 
 import "testing"
 
-func somaTest(t *testing.T) {
+func TestSoma(t *testing.T) {
 	total := Soma(15, 15)
 
-	if (total != 30) {
-		t.Errorf("Resultado da soma é inválido: Resultado: %d. Esperado: %d", total, 30)
+	if total != 30 {
+		t.Errorf("Resultado da some é inválido: Resultado %d. Esperado: %d", total, 30)
 	}
 }
