@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func SomaTest(t *testing.T) {
+func somaTest(t *testing.T) {
 	total := Soma(15, 15)
 
 	if (total != 30) {
